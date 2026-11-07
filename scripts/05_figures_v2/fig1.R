@@ -74,7 +74,7 @@ pA <- ggplot(deg, aes(log2FoldChange, y_plot)) +
            fill = "white", alpha = 0.82, linewidth = 0, label.padding = unit(0.5, "mm")) +
   scale_colour_manual(values = c(Up = ORG, Down = BLU, NS = "#D8D8D8"),
                       breaks = c("Up", "Down", "NS"),
-                      labels = c("Up in ER+", "Down in ER\u2212", "n.s."),
+                      labels = c("Higher in ER+", "Lower in ER+", "n.s."),
                       name = NULL) +
   scale_shape_manual(values = c(Candidate = 21), labels = c(Candidate = "NET candidate"),
                      name = NULL) +

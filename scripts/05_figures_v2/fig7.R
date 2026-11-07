@@ -43,7 +43,7 @@ pA <- ggplot(cnt, aes(frac, signature)) +
   scale_x_continuous(limits = c(0, 68), breaks = c(0, 25, 50),
                      expand = expansion(mult = c(0, 0.02))) +
   labs(x = "Neutrophil-restricted genes (%)", y = NULL,
-       title = "8 of 41 loci are neutrophil-restricted",
+       title = "8 of 41 entries are neutrophil-restricted",
        subtitle = "6 published + this study; 8/37 = 21.6% published-only") +
   theme_pub(8) +
   theme(axis.text.y = element_text(size = 6.8))
@@ -76,7 +76,6 @@ pB <- ggplot(gm, aes(idx, signature)) +
 # ---------------- C ----------------
 det$highlight <- det$gene %in% c("PADI4","MPO","ELANE")
 pC <- ggplot(det, aes(median_TPM, pct_detected)) +
-  geom_hline(yintercept = 10, linetype = "dotted", linewidth = 0.3, colour = "grey60") +
   geom_point(aes(colour = highlight, size = highlight), show.legend = FALSE) +
   geom_text_repel(aes(label = gene, colour = highlight), size = 2.0,
                   show.legend = FALSE, fontface = "italic",
@@ -85,8 +84,8 @@ pC <- ggplot(det, aes(median_TPM, pct_detected)) +
                   segment.colour = "grey55", max.overlaps = 20, seed = 1) +
   scale_colour_manual(values = c("FALSE" = "grey45", "TRUE" = "#B2182B")) +
   scale_size_manual(values = c("FALSE" = 1.6, "TRUE" = 2.4)) +
-  scale_x_log10(limits = c(0.04, 3.2), breaks = c(0.05, 0.1, 0.5, 1, 3),
-                labels = c("0.05","0.1","0.5","1","3")) +
+  scale_x_log10(limits = c(0.04, 3.2), breaks = c(0.05, 0.1, 0.2, 0.5, 1, 2),
+                labels = c("0.05","0.1","0.2","0.5","1","2")) +
   scale_y_continuous(limits = c(0, 78), breaks = seq(0, 60, 20)) +
   labs(x = "Median TPM (log scale)", y = "Tumours above 1 TPM (%)",
        title = "Seven of eight effectors fall below 1 TPM",

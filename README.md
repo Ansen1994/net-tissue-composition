@@ -8,7 +8,7 @@ Portable, path-independent copy of the analysis code. Every machine-specific abs
 |---|---|
 | `scripts/01_primary/` | Differential expression, LASSO and random-forest feature selection, Cox models, Kaplan-Meier and the original figure scripts |
 | `scripts/02_drug/` | Exploratory drug-sensitivity analyses (GDSC2, ridge regression) |
-| `scripts/03_work/` | Cohort assembly, module scores, single-cell attribution, table generation (`s9_supp_tables.R`, `make_table_s5_ci.R`, `make_table_s5c.R`, `j3_singlecell.R`) |
+| `scripts/03_work/` | Cohort assembly, module scores, single-cell attribution, table generation (`s9_supp_tables.R`, `make_table_s5_ci.R`, `make_table_s5c.R`, `make_table_s13f.R`, `make_table_s15b.R`, `j3_singlecell.R`) |
 | `scripts/04_work_scripts/` | Validation-cohort and cross-platform scaling scripts |
 | `scripts/05_figures_v2/` | Final figure scripts (`fig1.R`–`fig7.R`, `style.R`) |
 | `scripts/06_python/` | Packaging helpers only — see "What the Python scripts do not do" below |
@@ -19,7 +19,7 @@ Portable, path-independent copy of the analysis code. Every machine-specific abs
 | `MANIFEST.md` | Script-by-script listing with file counts |
 | `图表脚本对照表.md` | Crosswalk from each figure and table to its script |
 
-Totals: **84** R scripts, **11** Python scripts, **22** path replacements across **15** files.
+Totals: **87** R scripts, **13** Python scripts, **22** path replacements across **15** files.
 
 ## Requirements
 

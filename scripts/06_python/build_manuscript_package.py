@@ -11,8 +11,8 @@ Inputs (read-only):
 
 Outputs:
   10_初稿合订_v2/
-      Manuscript_v2_draft.docx        editable master (text + legends + 7 figures)
-      Manuscript_v2_draft.pdf         reading copy, same content
+      Manuscript_v2.docx        editable master (text + legends + 7 figures)
+      Manuscript_v2.pdf         reading copy, same content
       Figure_Plates.pdf               7 main figures in one file
       Figures/                       7 submission TIFF + 7 vector PDF
       Supplementary/                 consolidated workbook + legends + notes
@@ -57,8 +57,11 @@ FIGMAP = {
 SUPP_FILES = [
     "Supplementary_Tables_S1-S17.xlsx",
     "Supplementary_Materials_v2.md",
+    "Supplementary_Methods.md",
     "Supplementary_Table_Legends.md",
     "Supplementary_Figure_Legends.md",
+    "Supplementary Figure S1.pdf",
+    "Supplementary Figure S2.tif",
     "Supplementary Figure S3.pdf",
 ]
 
@@ -115,10 +118,13 @@ def declaration_blocks():
     out = [("h2", "Declarations")]
     skip = False
     for kind, text in parse_md(sec):
-        if kind == "h3" and text == "Data availability":
+        if kind == "h3" and text in ("Data availability", "Funding"):
+            # Data availability: the manuscript already carries the full statement;
+            # the duplicate is dropped so that no editorial note reaches the file.
+            # Funding: PLOS ONE explicitly forbids funding information anywhere in
+            # the manuscript file ("Funding information should only be entered in
+            # the financial disclosure section of the submission system").
             skip = True
-            out.append(("p", "**Data availability.** See the Data availability section above; "
-                             "the two statements must be merged into one at journal formatting."))
             continue
         if kind == "h3":
             skip = False
@@ -129,12 +135,10 @@ def declaration_blocks():
 
 
 def build_blocks():
-    blocks = [
-        ("todo_notice",
-         "PRELIMINARY DRAFT — %d %s. This consolidated file is for author review only. "
-         "Items shown in [SQUARE BRACKETS] still require author input. Not for submission."
-         % (datetime.now().day, datetime.now().strftime("%B %Y"))),
-    ]
+    # No draft banner: this file is the submission-ready consolidated version.
+    # Outstanding author actions are tracked in 07_投稿材料/Title_Page_and_Declarations.md
+    # (section 6), not on the face of the manuscript.
+    blocks = []
     blocks += title_page_blocks()
     blocks.append(("pagebreak", ""))
 
@@ -181,6 +185,16 @@ def segments(text, cites=True, todos=True):
 def inline_html(text, cites=True, todos=True):
     out = []
     for seg, style in segments(text, cites, todos):
+        if style == "plain" and any(c in SUP_CHARS for c in seg):
+            pos = 0
+            for m in SUP_RUN.finditer(seg):
+                if m.start() > pos:
+                    out.append(html.escape(seg[pos:m.start()], quote=False))
+                out.append("<sup>%s</sup>" % m.group(0).translate(SUP_TO_ASCII))
+                pos = m.end()
+            if pos < len(seg):
+                out.append(html.escape(seg[pos:], quote=False))
+            continue
         e = html.escape(seg, quote=False)
         if style == "bold":
             out.append("<strong>%s</strong>" % e)
@@ -244,8 +258,27 @@ def set_cell_font(style, size, bold=False):
     style._element.get_or_add_rPr().get_or_add_rFonts().set(qn("w:eastAsia"), "SimSun")
 
 
+SUP_CHARS = "⁰¹²³⁴⁵⁶⁷⁸⁹"
+SUP_TO_ASCII = str.maketrans(SUP_CHARS, "0123456789")
+# 作者/单位上标：Unicode 上标数字串，允许内部逗号（如 2,3,4）
+SUP_RUN = re.compile(r"[%s]+(?:,[%s]+)*" % (SUP_CHARS, SUP_CHARS))
+
+
 def add_runs(par, text, cites=True, todos=True):
     for seg, style in segments(text, cites, todos):
+        if style == "plain" and any(c in SUP_CHARS for c in seg):
+            # Unicode 上标 -> 真上标 run（Word 中可编辑、投稿系统可识别）
+            pos = 0
+            for m in SUP_RUN.finditer(seg):
+                if m.start() > pos:
+                    r = par.add_run(seg[pos:m.start()])
+                    r.font.superscript = False
+                r = par.add_run(m.group(0).translate(SUP_TO_ASCII))
+                r.font.superscript = True
+                pos = m.end()
+            if pos < len(seg):
+                par.add_run(seg[pos:])
+            continue
         r = par.add_run(seg)
         if style == "bold":
             r.bold = True
@@ -279,7 +312,7 @@ def build_docx(blocks, png_dir, path):
 
     footer = sec.footer.paragraphs[0]
     footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    fr = footer.add_run("Preliminary draft — 5 November 2026 — not for submission  |  page ")
+    fr = footer.add_run("page ")
     fr.font.size = Pt(8)
     fr.font.color.rgb = RGBColor(0x77, 0x77, 0x77)
     fld = OxmlElement("w:fldSimple")
@@ -375,7 +408,7 @@ h1 { font-size: 14pt; text-align: left; margin: 6pt 0 12pt 0; }
 
 def supp_html():
     out = []
-    sources = ["Supplementary_Materials_v2.md", "Supplementary_Table_Legends.md",
+    sources = ["Supplementary_Materials_v2.md", "Supplementary_Methods.md", "Supplementary_Table_Legends.md",
                "Supplementary_Figure_Legends.md"]
     for idx, name in enumerate(sources):
         if idx:
@@ -454,12 +487,17 @@ def collect_files():
         shutil.copy2(FIG_PDF / name, OUT / "Figures" / ("Figure%d.pdf" % n))
     for f in SUPP_FILES:
         shutil.copy2(SUPP_DIR / f, OUT / "Supplementary" / f)
+    assets = ROOT / "12_可复用资源" / "sc_umap"
+    if assets.is_dir():
+        shutil.copytree(assets, OUT / "Reusable_Assets", dirs_exist_ok=True)
 
 
 MANIFEST = """# 初稿合订包 · 使用说明
 
-**生成日期**：2026-11-05　|　**状态**：初步合订稿，供作者通读与传阅，**不可直接投稿**
+**生成日期**：2026-11-07　|　**状态**：通读用合订包，不再含草稿标记与编辑备注；目标期刊已定 PLOS ONE，**正式上传文件请用 `07_投稿材料/PLOS_ONE_Submission/`**（本包为内容母版与通读版）
 **复现脚本**：`05_数据与结果/work/build_manuscript_package.py`（源文件改动后重跑即可）
+
+> **当前计数口径（2026-11-07 复核，投稿填报据此）**：公开代码包为 87 个 R 脚本 + 13 个 Python 脚本（共 107 个文件，712.18 KB，唯一口径见 `11_代码公开包/MANIFEST.md`）；补充工作簿为 48 个 sheet；摘要 275 词（不含四个小标题），正文词数见 `07_投稿材料/Title_Page_and_Declarations.md`。下文各轮修订记录中出现的 78/10、82/11、45 sheet、366/5,880 等均为**当时的历史数值**，不得用于投稿填报。
 
 ## 一、这个文件夹是什么
 
@@ -469,13 +507,17 @@ MANIFEST = """# 初稿合订包 · 使用说明
 
 ```
 10_初稿合订_v2/
-├── Manuscript_v2_draft.docx      可编辑母版（Word / WPS）
-├── Manuscript_v2_draft.pdf       阅读版（内容与 docx 相同，便于传阅/打印）
+├── Manuscript_v2.docx             可编辑母版（Word / WPS）
+├── Manuscript_v2.pdf              阅读版（内容与 docx 相同，便于传阅/打印）
 ├── Figure_Plates.pdf             7 张主图单册（带书签）
+├── TRIPOD_Checklist.pdf         TRIPOD 2015 已完成清单（投稿附件，2 页）
 ├── Figures/                     Figure1–7.tif（600 dpi 投稿用）+ .pdf（矢量）
+├── Reusable_Assets/             重算 UMAP 坐标表/特征表/R 对象/参数/loaders 与 REUSE.md
 ├── Supplementary/
-│   ├── Supplementary_Tables_S1-S17.xlsx   数据表合订（46 工作表）
-│   ├── Supplementary_Materials_v2.pdf     补充材料阅读版（表目录 + 说明 + S1–S4 图注 + S4 图页）
+│   ├── Supplementary_Tables_S1-S17.xlsx   数据表合订（48 工作表）
+│   ├── Supplementary_Materials_v2.pdf     补充材料阅读版（表目录 + 补充方法 + 说明 + S1–S3 图注 + S3 图页）
+│   ├── Supplementary Figure S1.pdf       四基因单因素 Cox 森林图（1 页）
+│   ├── Supplementary Figure S2.tif       三验证队列风险分布（600 dpi TIFF）
 │   ├── Supplementary Figure S3.pdf       重算 UMAP 补充图（2 页，A4）
 │   └── Supplementary_*.md                 可编辑的说明文本
 └── README_初稿清单.md            本文件
@@ -485,13 +527,19 @@ MANIFEST = """# 初稿合订包 · 使用说明
 
 | 部分 | 本包文件 | 来源 | 状态 |
 |---|---|---|---|
-| 正文 | `Manuscript_v2_draft.docx` / `.pdf` | `01_手稿/_md/manuscript_v2_tissue_composition.md` + `07_投稿材料/Title_Page_and_Declarations.md` | 正文事实层已核查；Title page 作者信息待补 |
+| 正文 | `Manuscript_v2.docx` / `.pdf` | `01_手稿/_md/manuscript_v2_tissue_composition.md` + `07_投稿材料/Title_Page_and_Declarations.md` | 正文事实层已核查；Title page 作者、单位、贡献、声明已补齐 |
 | 主图 | `Figures/Figure1–7.tif`（+ `.pdf`）、`Figure_Plates.pdf` | `02_主图/v2_组织成分版/` 与 `07_投稿材料/figures_tiff/` | 7 张，600 dpi RGB/LZW TIFF，Okabe-Ito 统一配色 |
-| 补充 | `Supplementary/Supplementary_Tables_S1-S17.xlsx` | `03_补充材料/` | 46 个工作表 = README + 45 张表（S1–S17 及子面板，含 S5c 比例风险检验与 S17a–f 药敏全表） |
-| 补充阅读版 | `Supplementary/Supplementary_Materials_v2.pdf` | 由三份补充 md 排版 + Figure S4 图页装配 | 表目录 + 数据口径说明 + S1–S4 图注 + S4 图页，不用打开 Excel 也能通读 |
+| 补充 | `Supplementary/Supplementary_Tables_S1-S17.xlsx` | `03_补充材料/` | 48 个工作表 = README + 47 张表（S1–S17 及子面板，含 S5c 比例风险检验、S12h ESTIMATE 对照与 S17a–f 药敏全表） |
+| 补充阅读版 | `Supplementary/Supplementary_Materials_v2.pdf` | 由四份补充 md 排版 + Figure S3 图页装配 | 表目录 + 补充方法 + 数据口径说明 + S1–S3 图注 + S3 图页，不用打开 Excel 也能通读 |
+| 报告规范附件 | `TRIPOD_Checklist.pdf` | `07_投稿材料/TRIPOD_checklist.md` | TRIPOD 2015 已完成清单，2 页 PDF，兑现 Title page 中 "supplied as a separate submission file" 的声明 |
+| 补充图 | `Supplementary/Supplementary Figure S1.pdf`、`S2.tif`、`S3.pdf` | `03_补充材料/` | 三张补充图全部随包，与正文 3.3、3.4、3.6 的引用一一对应 |
+| 可复用资产 | `Reusable_Assets/` | `12_可复用资源/sc_umap/` | 重算 UMAP 的坐标表、特征表、参数、loaders 与 REUSE.md；由归档的 07_sc_umap 脚本可再生，不随代码 DOI 归档 |
 
-补充目录另附 `Supplementary_Materials_v2.md`（合订文本）、`Supplementary_Table_Legends.md`（纯表说明）、
-`Supplementary_Figure_Legends.md`（S1–S3 图注）与 `Supplementary Figure S3.pdf`（重算 UMAP 与构成/marker/基因表达图）。
+补充目录另附 `Supplementary_Materials_v2.md`（合订文本）、`Supplementary_Methods.md`（口径、切点层级、
+三种拟合辨析、统计家族与报告清单）、`Supplementary_Table_Legends.md`（纯表说明）、
+`Supplementary_Figure_Legends.md`（S1–S3 图注），以及三张补充图本体：`Supplementary Figure S1.pdf`
+（四基因单因素 Cox 森林图，正文 3.3 引用）、`Supplementary Figure S2.tif`（三验证队列风险分布，正文 3.4 引用）、
+`Supplementary Figure S3.pdf`（重算 UMAP 与构成/marker/基因表达图，正文 3.6 引用）。
 
 ## 三、合订时顺手修掉的三处自相矛盾
 
@@ -504,48 +552,50 @@ MANIFEST = """# 初稿合订包 · 使用说明
 
 正文 `01_手稿/_md/manuscript_v2_tissue_composition.md` 已同步修改。
 
-另外把补充合订文本里一句过期的「摘要 277 词」改成「约 303 词、按空格分词」，
-并同步修了生成脚本 `build_supplementary_tables.py`，下次重跑不会再带回旧值。
+补充合订文本里的摘要字数已统一为 275 词（不含四个小标题；含则 279），正文 6,591 词，
+均由 `count_words.py` 以单一定义算出。此前 277 / 303 / 348 / 366 / 370 / 385 / 5,389 / 5,880
+各说各话的情况已消除，`Title_Page_and_Declarations.md` 与 `TRIPOD_checklist.md` 同步为同一数值。
 
-## 四、需要你补齐 / 决定的事项
+## 四、已完成与仍待决定的事项
 
-**Title page 仍留着 `[SQUARE BRACKETS]` 占位符**（docx 与 pdf 里以橙色标出），共 8 项：
-作者名单与顺序、单位全称与编号、通讯作者信息（含 ORCID）、基金、利益冲突、preprint/会议摘要、
-作者贡献（CRediT）、致谢。另需决定：代码是否公开托管取 DOI、三张旧补充图是否保留。
+**已完成**（2026-11-06 收尾）：作者五人及顺序、四个单位全称与上标编号、两位通讯作者信息（含 ORCID）、
+基金（无资助，全部使用公共数据）、利益冲突声明、Acknowledgements、CRediT 十四项、preprint 声明；
+代码包已上传 GitHub 并在 Zenodo 归档，DOI `10.5281/zenodo.24012389` 已写入正文 Data availability。
+正文、图注、补充材料中的方括号占位符与写给自己的编辑备注已清零（2026-11-06 复核）。
 
-**目标期刊未定**，因此本包刻意没有做：期刊模板排版、摘要压缩（现约 370 词）、参考文献样式转换、
-Cover letter、TRIPOD 版本确认。这些按你之前说的「等定具体期刊再说」。
+**目标期刊已定**：PLOS ONE（2026-11-07）。本包保留为通读/内容母版；PLOS 专用上传文件（单段摘要、Fig 编号、图注入正文、Vancouver 题录、补材 captions、双倍行距与连续行号、Cover letter）由 `build_plos_one_submission.py` 生成在 `07_投稿材料/PLOS_ONE_Submission/`。合订包页脚的 "not for submission" 草稿标记与稿件内的 Funding 段已按 PLOS 规则移除。
 
 ## 五、投稿前已知待办（不影响通读）
 
-1. **Data availability 有两套措辞**：正文里是「向通讯作者合理索取」，`Title_Page_and_Declarations.md`
-   的声明草稿里有一版更详细、列出各数据库 URL 与补充表的写法。本包为避免重复，声明段只保留一句交叉引用；
-   定刊格式时二选一合并。若改走 Zenodo/GitHub 公开托管，**两处都要同步改**。
-2. **三张旧补充图 S1–S3 未被 v2 正文引用**（上一版遗留），本包未收入。定刊时决定保留还是删除。
+1. **Data availability 已改为单一版本**：正文用 Zenodo DOI（10.5281/zenodo.24012389，v1.0.1），
+   `Title_Page_and_Declarations.md` 的声明段只保留一句交叉引用，两处不再各写一套。
+   若日后换仓库或改版本 DOI，两处都要同步改。
+2. **三张补充图 S1–S3 均被 v2 正文引用并已随包**：S1 见 3.3、S2 见 3.4、S3 见 3.6；文件在 `Supplementary/` 下，图注在 `Supplementary_Figure_Legends.md`。
 3. **两份旧文件不可投稿**：`05_数据与结果/Supplementary Materials.docx`（旧 S1–S4 目录）、
    `05_数据与结果/work/Supplementary_Tables.xlsx`（旧 4 sheet）。本包未收录，原文件保留未动。
-4. 补充图注文件里的 Figure S1–S3 章节在合订文本中已标为 `archived, not cited in v2`。
-5. 词数按空格分词（2026-11-06 第七轮 C 档修订后重算）：摘要约 385 词、正文约 5,389 词；不同计数器结果有别，以目标期刊计数器为准。
+4. 补充图注文件里的 Figure S1–S3 章节均为现行图注，与正文引用编号一致。
+5. 词数按 `count_words.py` 的固定口径（2026-11-07 复核）：摘要 275 词（不含四个小标题）、正文 6,591 词；投稿系统自带计数器可能略有出入。
 
 ## 六、校验记录
 
 生成脚本自动检查：题录编号连续且全部被正文引用、7 条图注与 7 张图一一对应、
-7 份 TIFF / 7 份 PDF 齐全、补充工作簿 46 个工作表、旧硬伤表述零残留。
+7 份 TIFF / 7 份 PDF 齐全、补充工作簿 48 个工作表、旧硬伤表述零残留。
 
 ## 七、2026-11-05 第三轮逐行审稿意见核实后的修订
 
 18 条审稿意见（去重后 17 条）逐条回溯原始代码与结果表后完成以下修订：
 
-1. 统一为「6 个已发表 + 本文 = 7 个签名 / 41 loci」；19.5%（8/41）是全体口径，21.6%（8/37）是仅已发表口径。摘要、Methods 2.9、Results 3.7、Discussion、Conclusion、Figure 7 图注与 Table S13a 标题同步。
+1. 统一为「6 个已发表 + 本文 = 7 个签名 / 41 个签名–基因条目」，条目对应 35 个不重复基因（AZU1、ELANE、IL6、KCNJ15、CRISPLD2 跨签名重复），故一律称条目而非 loci；19.5%（8/41）是全体口径，21.6%（8/37）是仅已发表口径。摘要、Methods 2.9、Results 3.7、Discussion、Conclusion、Figure 7 图注与 Table S13a 标题同步。
 2. Figure 1D 补齐 broadly expressed (3)，正文列出 12+20+29+15+14+14+3+25=132。
 3. 增量价值拆成三个模型重述（Table S10a 的 0.725→0.727 / 0.657 / 0.765 与 Table S10b 的 0.734 / 0.657 / 0.765），删去不实的 "identical"；Results 3.4 与 Figure 4E 图注写明 n=327 / 1,445 / 2,840，并说明 Table S9 的 1,498 / 2,935 属于另一套完整病例口径。
-4. Methods 2.1 改为「使用数据源已归一化矩阵」，不虚构 limma/affy 预处理步骤；补 GeneCards 引用 [40]，现共 40 条题录。
+4. Methods 2.1 改为「使用数据源已归一化矩阵」，不虚构 limma/affy 预处理步骤；补 GeneCards 引用（按首次出现重编后为 [23]），现共 40 条题录，编号已按正文首次引用顺序排列。
 5. Methods 2.5 补全 11 个模块的枚举并说明两套模块体系；Methods 2.9 列出 9 个泛化模块；Figure 7D 图注给出映射，明确 NETosis 是 6 基因效应模块而非 22 基因参考评分。
 6. Methods 2.7 在正文列出 22 个基因并改引 Table S14b；2.3 改写随机森林种子表述（单次 `set.seed(2026)`、跨包版本排序差异）；2.11 与 Code availability 补 10 个 Python 3.13 脚本的用途与版本。
 7. 摘要 / Results 3.6 / Figure 6D 图注统一 all-cell 与 ER+ 检出率口径；Figure 6C 的 PLG 条置灰并标 N/A（Figure 6、7 已重画，7 张 TIFF 已重生成）；Figure 4D 图注解释 S0–S3 与 0.690 / 0.654 / 0.666 的关系；Table S13a 新增 Reference 列对应 [14]–[19]；Table S10b 补回 METABRIC CombinedScore 行并注明来源。
 8. Discussion 改为「四个基因均属组织组成指标」，并说明 PLG 反映血液含量与血管灌注而非肿瘤驻留细胞。
 
-**仍未解决的阻塞项**：P1-1 的 `[REPOSITORY URL]` / `[VERSION]` / `[DOI]` 需上传代码包取 DOI 后回填；8 项作者信息占位符；目标期刊与摘要压缩。
+**阻塞项已全部解除**（2026-11-06）：仓库 URL、版本号与 DOI 已回填（Zenodo `10.5281/zenodo.24012389`，v1.0.1）；
+8 项作者信息占位符已补齐；摘要定为 275 词、正文 6,591 词。仅余「目标期刊未定」一项待决。
 
 ## 八、2026-11-05 第四轮复审（P3-19 / P3-20）
 
@@ -561,7 +611,7 @@ Cover letter、TRIPOD 版本确认。这些按你之前说的「等定具体期�
 3. **模板遵循声明**：Methods 2.3 补一句，说明流程原样复现已发表模板、未做刻意弱化选择，回应「作者自建较弱签名」的可能质疑。
 4. **3.4 拆段**：在 "Two further observations point to measurement rather than modelling" 处断开，把三个拟合的区分与跨平台测量证据分成两段。
 
-**未采纳**：删 Methods 2.5 的 11 模块枚举（Table S12a 已有 96 行完整列表，且与第三轮 P2-12 相冲突）、压缩药敏/治疗交互段（会切断 S17 / S15 的正文锚点）、为「正向对照」补造实验数据、补充材料新增核查清单（会改变 45 sheet 结构）。本轮未改任何数值、图或数据表。
+**未采纳**：删 Methods 2.5 的 11 模块枚举（Table S12a 已有 96 行完整列表，且与第三轮 P2-12 相冲突）、压缩药敏/治疗交互段（会切断 S17 / S15 的正文锚点）、为「正向对照」补造实验数据、补充材料新增核查清单（会改变当时的 45 sheet 结构）。本轮未改任何数值、图或数据表。
 ## 十、单细胞措辞与注释体系说明（A 档，2026-11-06）
 
 核查发现：本文单细胞部分复用 GSE176078 作者发布的 curated 标签做基因来源归因，全项目无 QC / 归一化 / HVG / 聚类 / UMAP 代码；GEO 处理文件的 `metadata.csv` 也不含 UMAP 坐标（原图谱 UMAP 见 Wu et al. 2021 Fig.1）。更关键的是，该注释体系的 9 个 major 与 29 个 minor 标签中**没有任何中性粒细胞 / 粒细胞类别**，因此「九大类中找不到 NET 效应基因」部分源于注释粒度，正文此前只写了「10x 低估中性粒细胞」。
@@ -574,7 +624,7 @@ Cover letter、TRIPOD 版本确认。这些按你之前说的「等定具体期�
 4. 补充材料 Notes 新增 `Single-cell annotation audit`：9 大类 / 29 minor / 亚型细胞数、谱系 marker 验证值；Table S11a 表注补口径说明。
 5. `j3_singlecell.R` 追加可复现的审计段，输出 `j3_annotation_audit.csv` 与 `j3_marker_verification.csv`（实测 9 / 29 / 3 类、中性粒细胞标签 0 个），公开代码包副本同步。
 
-**A 档第 4 项（新增细胞类型构成 + marker 验证图）本轮未做**：该图与下一步「是否重跑 UMAP」共用同一张补充图，先画会返工；且 `03_补充材料/` 的 S1–S3 编号已被三张旧补图占用、去留未定，新增补充图需连带改合订包的图片装配逻辑。待决定是否做 C 档 UMAP 后一并处理。本轮**未改动任何数值、图或 7 图结构**，补充工作簿仍 45 sheet。
+**A 档第 4 项（新增细胞类型构成 + marker 验证图）本轮未做**：该图与下一步「是否重跑 UMAP」共用同一张补充图，先画会返工；且 `03_补充材料/` 的 S1–S3 编号已被三张旧补图占用、去留未定，新增补充图需连带改合订包的图片装配逻辑。待决定是否做 C 档 UMAP 后一并处理。本轮**未改动任何数值、图或 7 图结构**，补充工作簿仍为当时的 45 sheet。
 
 ## 十一、C 档 UMAP 重算、亚型口径修正与补充图 S4（2026-11-06）
 
@@ -584,7 +634,7 @@ Cover letter、TRIPOD 版本确认。这些按你之前说的「等定具体期�
 2. **UMAP 措辞反转**：A 档写的「未生成 UMAP」已改为「为展示重算了 UMAP，不重新聚类、不重新注释、不进入任何统计模型，坐标非原作者坐标」，指向新增的 Supplementary Figure S3（原编号 S4）。
 3. **补充图 S3**：`03_补充材料/Supplementary Figure S3.pdf`（A4 纵向 2 页，UMAP 按 9 大类/亚型/ER+ 高亮 + 细胞构成 + marker 验证 + 12 个基因表达，4 x 3 排列，覆盖特征表全部基因）；原 S3（nomogram + DCA）因正文无对应方法与结果已移除，本图由原 S4 顺延编号；`Supplementary_Figure_Legends.md` 同步图注；合订脚本的 `supp_html()` 纳入第三份 md，`build_supp_pdf()` 会把该图页追加进补充阅读版。
 4. **可复用产物**：`12_可复用资源/sc_umap/` 提供坐标表（csv.gz）、12 基因表达表、轻量 R 对象、JSON manifest（含 SHA-256 cache_key）、sessionInfo、config/pipeline/plots/load 脚本与 REUSE.md；公开代码包 `scripts/07_umap/` 同步脚本副本，`00_config.R` 增加 `WB_SEED_UMAP`。本机无 pyarrow/pandas，故主格式定为 csv.gz + Python 标准库加载器，未生成 Parquet（已在 REUSE.md 如实说明）。
-5. **计数同步**：公开代码包由 78 R + 10 Python 变为 82 R + 11 Python；正文 2.11 与 Title page、代码包 README/MANIFEST 同步。词数重算为摘要 385 / 正文 5,389。
+5. **计数同步（当时口径）**：公开代码包由 78 R + 10 Python 变为 82 R + 11 Python（现为 87 R + 13 Python，见本文件开头的当前计数口径）；正文 2.11 与 Title page、代码包 README/MANIFEST 同步。词数重算为摘要 366 / 正文 5,880。
 
 本轮**未改动任何主图、数值或补充工作簿的 45 个 sheet**；新增内容仅为补充图 S4、正文口径文字与可复用产物。（此句描述第十一节那一轮；紧接的第十二节记录了后续改动。）
 
@@ -594,7 +644,7 @@ Cover letter、TRIPOD 版本确认。这些按你之前说的「等定具体期�
 
 1. **主图 Figure 6 重画**：A 面板色标 0–5.4→0–1.7、B 面板对数轴 4e-4–25→6e-5–3、倍数标签更新为 19×/510×/53×/462×；`Figure6_ABCDEF.pdf` 与 600 dpi `Figure6.tif` 已同步到 `02_主图/`、`07_投稿材料/`、`10_初稿合订_v2/Figures/`。
 2. **补充图 S4 重出**：E 面板改为 6 个谱系 marker（删去 MKI67），副标题、图注与补充材料 Notes 同步；PDF 三处副本哈希一致，压缩后 19.60 MB。
-3. **数值同步**：Results 3.6、Methods 2.6、Figure S4 图注、Table S11a 说明与 45 sheet 工作簿的 `Table S11a` 均值列全部更新；检出率、Figure 6D、Table S11b、S4 第 2 页百分比及全部 bulk / 生存分析数值未变。
+3. **数值同步**：Results 3.6、Methods 2.6、Figure S4 图注、Table S11a 说明与当时 45 sheet 工作簿的 `Table S11a` 均值列全部更新；检出率、Figure 6D、Table S11b、S4 第 2 页百分比及全部 bulk / 生存分析数值未变。
 4. **排版修正**：补充阅读版中 S4 图页的页码原压在 E 面板 x 轴刻度上，现改为图页不编号（文字页 1–12 仍保留页码）。
 5. 修正前的 4 张 j3 csv 与 `j3_allcells.rds` 备份于 `99_归档/归一化修正前_20261106/`；完整前后对照见 `改稿说明_v2.md` 第十七节。
 
@@ -628,6 +678,9 @@ def validate(blocks):
     for f in SUPP_FILES:
         if not (OUT / "Supplementary" / f).exists():
             problems.append("缺补充文件 %s" % f)
+    assets = OUT / "Reusable_Assets"
+    if not assets.is_dir() or not any(assets.iterdir()):
+        problems.append("缺 Reusable_Assets 可复用资产目录")
     if not (OUT / "Supplementary" / "Supplementary_Materials_v2.pdf").exists():
         problems.append("缺补充材料阅读版 PDF")
     for bad in ("674188", "up to 30%", "28 cell types", "28 annotated",
@@ -643,7 +696,7 @@ def validate(blocks):
     wb = openpyxl.load_workbook(OUT / "Supplementary" / SUPP_FILES[0], read_only=True)
     n_sheets = len(wb.sheetnames)
     wb.close()
-    EXPECTED_SHEETS = 46  # README + 45 data sheets (S1-S17, incl. S5c and S17a-S17f)
+    EXPECTED_SHEETS = 48  # README + 47 data sheets (S1-S17, incl. S5c, S12h, S15b and S17a-S17f)
     if n_sheets != EXPECTED_SHEETS:
         problems.append("补充工作簿 sheet 数 %d != %d" % (n_sheets, EXPECTED_SHEETS))
     return problems, len(refs), len(legends), n_sheets
@@ -657,8 +710,8 @@ def main():
     tmp = Path(tempfile.mkdtemp(prefix="wb_manuscript_"))
     try:
         render_pngs(tmp)
-        build_docx(blocks, tmp, OUT / "Manuscript_v2_draft.docx")
-        n_pages = build_pdf(blocks, tmp, OUT / "Manuscript_v2_draft.pdf")
+        build_docx(blocks, tmp, OUT / "Manuscript_v2.docx")
+        n_pages = build_pdf(blocks, tmp, OUT / "Manuscript_v2.pdf")
         n_plates = build_plates(OUT / "Figure_Plates.pdf")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

@@ -22,11 +22,11 @@ sigs <- list(
   Ours   = c("PLG","CD79A","MMP7","ANGPT1")
 )
 sig_src <- c(
-  BRCA_A = "PMC10250592 (Front Genet, TCGA BRCA)",
+  BRCA_A = "PMC10250592 (Front Mol Biosci, TCGA BRCA)",
   BRCA_B = "PMC11985209 (Transl Cancer Res, TCGA BRCA)",
   BRCA_C = "TCGA-BRCA NETs+inflammation, 6 genes",
   GC_A   = "PMC10438473 (gastric cancer)",
-  GC_B   = "AJCO 2025 (gastric cancer)",
+  GC_B   = "Asia Pac J Clin Oncol 2026 (gastric cancer)",
   CRC_A  = "Springer 2025 (colorectal cancer)",
   Ours   = "This study (TCGA BRCA ER+)"
 )

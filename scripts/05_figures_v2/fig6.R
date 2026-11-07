@@ -57,8 +57,8 @@ tum <- ce %>% filter(major == "Cancer Epithelial") %>%
   transmute(gene, compartment = "Cancer epithelium", expr = mean_expr)
 bb <- rbind(tum, dom)
 bb$gene <- factor(bb$gene, levels = rev(genes))
-bb$grp  <- factor(ifelse(bb$compartment == "Cancer epithelium", "Tumour", "Dominant"),
-                  levels = c("Tumour","Dominant"))
+bb$grp  <- factor(ifelse(bb$compartment == "Cancer epithelium", "Tumour epithelium", "Dominant"),
+                  levels = c("Tumour epithelium","Dominant"))
 fold <- bb %>% group_by(gene) %>% summarise(f = max(expr) / min(expr), .groups = "drop")
 
 pB <- ggplot(bb, aes(expr, gene)) +
@@ -68,15 +68,16 @@ pB <- ggplot(bb, aes(expr, gene)) +
   scale_x_log10(limits = c(6e-5, 3), breaks = c(1e-4, 1e-3, 1e-2, 1e-1, 1),
                 labels = c("0.0001","0.001","0.01","0.1","1")) +
   scale_y_discrete(labels = sprintf("%s  (%.0fx)", rev(genes), fold$f[match(rev(genes), fold$gene)])) +
-  scale_colour_manual(values = c(Tumour = "#B2182B", Dominant = "#2166AC"), name = NULL) +
-  scale_shape_manual(values = c(Tumour = 17, Dominant = 16), name = NULL) +
-  labs(x = "Mean expression (log scale)", y = NULL,
-       title = "Tumour vs dominant",
+  scale_colour_manual(values = c("Tumour epithelium" = "#B2182B", Dominant = "#2166AC"), name = NULL) +
+  scale_shape_manual(values = c("Tumour epithelium" = 17, Dominant = 16), name = NULL) +
+  labs(x = "Mean expression (log1p CP10K)", y = NULL,
+       title = "Tumour epithelium vs dominant",
        subtitle = "fold difference in brackets") +
   theme_pub(8) +
   theme(legend.position = "bottom", legend.direction = "horizontal",
         legend.key.size = unit(2.6, "mm"),
         legend.margin = margin(t = -4, b = 0),
+        plot.title = element_text(size = 7.5),
         axis.text.y = element_text(size = 7.0, face = "italic"))
 
 # ---------------- C ----------------
@@ -140,7 +141,7 @@ pD <- ggplot(nd, aes(pct, gene)) +
   scale_x_log10(limits = c(0.04, 90), breaks = c(0.1, 1, 10),
                 labels = c("0.1","1","10")) +
   labs(x = "Detected cells in ER+ tumours (%, log scale)", y = NULL,
-       title = "Most effectors sit at the detection floor",
+       title = "Four NET effectors sit at the detection floor",
        subtitle = "PADI4, MPO, ELANE and CXCR2 below 0.25%") +
   theme_pub(8) +
   theme(axis.text.y = element_text(size = 7.0, face = "italic"))
@@ -193,7 +194,7 @@ pF <- ggplot(f6, aes(version, rho, colour = cohort, group = cohort)) +
   scale_y_continuous(limits = c(-0.45, 0.4), breaks = seq(-0.4, 0.4, 0.2)) +
   labs(x = NULL, y = "Spearman rho with module",
        title = "The immune-cold signal is arithmetic",
-       subtitle = "removing CD79A removes the negative association in every cohort") +
+       subtitle = "CD79A removal: 13 of 16 associations turn non-negative") +
   theme_pub(8) +
   theme(legend.position = "bottom", legend.direction = "horizontal",
         legend.key.size = unit(2.6, "mm"),

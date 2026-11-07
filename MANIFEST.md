@@ -1,6 +1,6 @@
 # Script manifest
 
-Generated 2026-11-06 21:04 from `04_代码/` and `05_数据与结果/work/`.
+Generated 2026-11-07 14:47 from `04_代码/` and `05_数据与结果/work/`.
 
 Directories are ordered by analysis stage. `图表脚本对照表.md` maps each figure and table to the script that produced it.
 
@@ -38,7 +38,7 @@ Exploratory drug-sensitivity analysis (GDSC2 ridge regression, Table S17).
 - `scripts/02_drug/16_targeted_residual.R` (paths rewritten)
 - `scripts/02_drug/17_targeted_figs.R` (paths rewritten)
 
-### `scripts/03_work/` (38 files)
+### `scripts/03_work/` (41 files)
 
 Re-evaluation analyses: cross-platform scaling, reference NET score, treatment interaction, immune-axis decomposition, single-cell origin, generalisation set.
 
@@ -74,10 +74,13 @@ Re-evaluation analyses: cross-platform scaling, reference NET score, treatment i
 - `scripts/03_work/j4_generalize.R`
 - `scripts/03_work/j4b_generalize.R`
 - `scripts/03_work/j4c_generalize.R`
+- `scripts/03_work/make_table_s13f.R`
+- `scripts/03_work/make_table_s15b.R`
 - `scripts/03_work/make_table_s5_ci.R`
 - `scripts/03_work/make_table_s5c.R`
 - `scripts/03_work/probe_tcga.R`
 - `scripts/03_work/probe_tcga2.R`
+- `scripts/03_work/s12h_estimate_check.R`
 - `scripts/03_work/t_s10_incremental.R`
 - `scripts/03_work/t_s9_scheme_table.R`
 
@@ -109,7 +112,7 @@ Final v2 figure code (unified Okabe-Ito palette and typography).
 - `scripts/05_figures_v2/fig7.R`
 - `scripts/05_figures_v2/style.R`
 
-### `scripts/06_python/` (9 files)
+### `scripts/06_python/` (12 files)
 
 Reproducibility helpers: supplementary workbook, manuscript package, reference audit, review-fix patches, TIFF conversion.
 
@@ -118,12 +121,15 @@ Reproducibility helpers: supplementary workbook, manuscript package, reference a
 - `scripts/06_python/build_code_archive.py`
 - `scripts/06_python/build_manuscript_package.py`
 - `scripts/06_python/build_supplementary_tables.py`
+- `scripts/06_python/count_words.py`
 - `scripts/06_python/patch.py`
+- `scripts/06_python/patch_refs.py`
 - `scripts/06_python/patch_supp_s17.py`
 - `scripts/06_python/verify_refs.py`
 - `scripts/06_python/verify_specific.py`
+- `scripts/06_python/make_tiff.py` (600 dpi TIFF conversion)
 
-### `scripts/07_sc_umap/` (4 files)
+### `scripts/07_sc_umap/` (5 files)
 
 Reusable single-cell asset: recomputes and plots the display-only UMAP embedding of Supplementary Figure S3 (standalone; enters no statistical model).
 
@@ -131,13 +137,12 @@ Reusable single-cell asset: recomputes and plots the display-only UMAP embedding
 - `scripts/07_sc_umap/sc_umap_load.R`
 - `scripts/07_sc_umap/sc_umap_pipeline.R`
 - `scripts/07_sc_umap/sc_umap_plots.R`
-
-- `scripts/06_python/make_tiff.py` (600 dpi TIFF conversion)
 - `scripts/07_sc_umap/sc_umap_load.py` (read-only loader for the cached UMAP embeddings)
+
 ## Verification
 
-- Portable R scripts: **84** parsed with `parse()`; failures: **none**.
-- Portable Python helpers: **11**.
+- Portable R scripts: **87** parsed with `parse()`; failures: **none**.
+- Portable Python helpers: **13**.
 - Absolute paths rewritten: **22** (see `PATHS.md`).
 
 Parsing checks syntax only. A full numerical re-run additionally requires the public input data listed in `README.md`; that step was not re-executed while building this archive.

@@ -169,6 +169,26 @@ def main():
             (r_files if f.endswith(".R") else py_files).append(dst)
         manifest.append("")
 
+    # Seat helper entries inside their own directory sections rather than
+    # appending them after the last section (which mislabelled the file counts).
+    def seat_helper(line, sub):
+        key = "### `scripts/%s/`" % sub
+        idx = next((i for i, l in enumerate(manifest) if l.startswith(key)), None)
+        if idx is None:
+            manifest.append(line)
+            return
+        m = re.search(r"\((\d+) files\)", manifest[idx])
+        if m:
+            manifest[idx] = manifest[idx].replace(
+                "(%s files)" % m.group(1), "(%d files)" % (int(m.group(1)) + 1), 1)
+        j = idx + 1
+        while j < len(manifest) and not manifest[j].startswith("### ") \
+                and not manifest[j].startswith("## "):
+            j += 1
+        while j > idx and manifest[j - 1] == "":
+            j -= 1
+        manifest.insert(j, line)
+
     # extra python helper living in figs_v2
     extra = os.path.join(ROOT, "05_数据与结果", "work", "figs_v2", "make_tiff.py")
     if os.path.exists(extra):
@@ -178,7 +198,8 @@ def main():
         new, log = portable(text)
         with open(dst, "w", encoding="utf-8", newline="\n") as fh:
             fh.write(new)
-        manifest.append("- `scripts/06_python/make_tiff.py` (600 dpi TIFF conversion)")
+        seat_helper("- `scripts/06_python/make_tiff.py` (600 dpi TIFF conversion)",
+                    "06_python")
         py_files.append(dst)
         counts["06_python"] = counts.get("06_python", 0) + 1
 
@@ -191,8 +212,8 @@ def main():
         new, log = portable(text)
         with open(dst, "w", encoding="utf-8", newline="\n") as fh:
             fh.write(new)
-        manifest.append("- `scripts/07_sc_umap/sc_umap_load.py` (read-only loader for the "
-                        "cached UMAP embeddings)")
+        seat_helper("- `scripts/07_sc_umap/sc_umap_load.py` (read-only loader for the "
+                    "cached UMAP embeddings)", "07_sc_umap")
         py_files.append(dst)
         counts["07_sc_umap"] = counts.get("07_sc_umap", 0) + 1
 
@@ -293,7 +314,7 @@ SOFTWARE.
         "regression) |",
         "| `scripts/03_work/` | Cohort assembly, module scores, single-cell attribution, "
         "table generation (`s9_supp_tables.R`, `make_table_s5_ci.R`, `make_table_s5c.R`, "
-        "`j3_singlecell.R`) |",
+        "`make_table_s13f.R`, `make_table_s15b.R`, `j3_singlecell.R`) |",
         "| `scripts/04_work_scripts/` | Validation-cohort and cross-platform scaling "
         "scripts |",
         "| `scripts/05_figures_v2/` | Final figure scripts (`fig1.R`–`fig7.R`, `style.R`) |",

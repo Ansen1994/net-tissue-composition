@@ -86,7 +86,7 @@ d_est <- rbind(
 d_est$est <- factor(d_est$est, levels = c("Interaction","Treated","Untreated"))
 
 lab_d <- d_est %>% filter(est == "Interaction") %>%
-  mutate(txt = sprintf("%.2f (%.2f-%.2f)\np %s", HR, lo, hi,
+  mutate(txt = sprintf("%.2f (%.2f\u2013%.2f)\np %s", HR, lo, hi,
                        ifelse(p < 0.0001, "< 0.0001", paste("=", sprintf("%.3f", p)))))
 
 pD <- ggplot(d_est, aes(HR, block, colour = est)) +
